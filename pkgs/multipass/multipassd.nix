@@ -157,6 +157,12 @@ stdenv.mkDerivation {
     # shipped by the nixpkgs QEMU package instead of copying it.
     mkdir -p $out/Resources
     ln -s ${qemu}/share/qemu $out/Resources/qemu
+
+    # QemuImgProcessSpec and QemuBaseProcessSpec resolve these next to the
+    # daemon binary, not through PATH.
+    ln -s ${qemu-utils}/bin/qemu-img $out/bin/qemu-img
+    ln -s ${qemu}/bin/qemu-system-${stdenv.hostPlatform.parsed.cpu.name} \
+      $out/bin/qemu-system-${stdenv.hostPlatform.parsed.cpu.name}
   '';
 
   meta = commonMeta // {

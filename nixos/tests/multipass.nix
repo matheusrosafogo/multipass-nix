@@ -32,5 +32,10 @@ pkgs.testers.nixosTest {
     machine.wait_for_file("/usr/local/etc/multipassd/multipass_root_cert.pem")
     machine.wait_until_succeeds("multipass list")
     machine.succeed("multipass version")
+
+    # The daemon resolves qemu-img and qemu-system-<arch> relative to its own
+    # binary directory.
+    machine.succeed("test -x $(dirname $(readlink -f $(command -v multipassd)))/qemu-img")
+    machine.succeed("test -x $(dirname $(readlink -f $(command -v multipassd)))/qemu-system-x86_64")
   '';
 }
