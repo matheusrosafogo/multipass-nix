@@ -39,6 +39,22 @@ in
       "d /usr/local/etc/multipassd 0755 root root -"
     ];
 
+    # The NixOS firewall runs in the `inet nixos-fw` table, while Multipass
+    # installs its own rules in the iptables-nft tables.  Without these input
+    # rules, DHCP requests from the VMs never reach dnsmasq and the daemon
+    # waits forever for SSH.  Forwarding is handled by Multipass itself.
+    networking.firewall.interfaces = lib.genAttrs [
+      "mpqemubrzone1"
+      "mpqemubrzone2"
+      "mpqemubrzone3"
+    ] (_: {
+      allowedUDPPorts = [
+        53
+        67
+      ];
+      allowedTCPPorts = [ 53 ];
+    });
+
     systemd.services.multipass = {
       description = "Multipass orchestrates virtual Ubuntu instances.";
 
