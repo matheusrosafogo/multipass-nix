@@ -1,0 +1,92 @@
+diff --git a/include/multipass/ssh/libssh_wrapper.h b/include/multipass/ssh/libssh_wrapper.h
+index 3d1a1b5..cf4fd72 100644
+--- a/include/multipass/ssh/libssh_wrapper.h
++++ b/include/multipass/ssh/libssh_wrapper.h
+@@ -166,6 +166,7 @@ public:
+ 
+     // --- sftp server ---------------------------------------------------------
+     virtual sftp_session sftp_server_new(ssh_session session, ssh_channel chan) const;
++    virtual int sftp_server_init(sftp_session sftp) const;
+     virtual void sftp_server_free(sftp_session sftp) const;
+     virtual void sftp_client_message_free(sftp_client_message msg) const;
+     virtual void* sftp_handle(sftp_session sftp, ssh_string handle) const;
+@@ -191,8 +192,5 @@ public:
+     virtual int sftp_reply_status(sftp_client_message msg,
+                                   uint32_t status,
+                                   const char* message) const;
+-    // Not exposed in libssh's public headers; forward-declared with C linkage and
+-    // implemented by libssh.
+-    virtual int sftp_reply_version(sftp_client_message msg) const;
+ };
+ } // namespace multipass
+diff --git a/src/ssh/libssh_wrapper.cpp b/src/ssh/libssh_wrapper.cpp
+index 53090ba..736b92e 100644
+--- a/src/ssh/libssh_wrapper.cpp
++++ b/src/ssh/libssh_wrapper.cpp
+@@ -21,7 +21,6 @@
+ 
+ extern "C"
+ {
+-int sftp_reply_version(sftp_client_message msg);
+ }
+ 
+ namespace mp = multipass;
+@@ -457,6 +456,11 @@ sftp_session mp::Libssh::sftp_server_new(ssh_session session, ssh_channel chan)
+     return ::sftp_server_new(session, chan);
+ }
+ 
++int mp::Libssh::sftp_server_init(sftp_session sftp) const
++{
++    return ::sftp_server_init(sftp);
++}
++
+ void mp::Libssh::sftp_server_free(sftp_session sftp) const
+ {
+     ::sftp_server_free(sftp);
+@@ -554,7 +558,3 @@ int mp::Libssh::sftp_reply_status(sftp_client_message msg,
+     return ::sftp_reply_status(msg, status, message);
+ }
+ 
+-int mp::Libssh::sftp_reply_version(sftp_client_message msg) const
+-{
+-    return ::sftp_reply_version(msg);
+-}
+diff --git a/src/sshfs_mount/sftp_server.cpp b/src/sshfs_mount/sftp_server.cpp
+index be6725d..585b228 100644
+--- a/src/sshfs_mount/sftp_server.cpp
++++ b/src/sshfs_mount/sftp_server.cpp
+@@ -67,30 +67,11 @@ auto make_sftp_session(ssh_session session, ssh_channel channel)
+     mp::SftpServer::SftpSessionUptr sftp_server_session{
+         MP_LIBSSH.sftp_server_new(session, channel),
+         [](sftp_session s) { MP_LIBSSH.sftp_server_free(s); }};
+-    // The function sftp_server_init was expanded here to avoid deprecation warnings.
+-    // TODO: move to callback-based sftp implementations.
+-    // https://github.com/canonical/multipass/issues/4445
+-
+-    /* handles setting the sftp->client_version */
+-    sftp_client_message msg{MP_LIBSSH.sftp_get_client_message(sftp_server_session.get())};
+-    if (msg == nullptr)
+-    {
+-        throw mp::SSHException("[sftp] server init failed: 'Null client message'");
+-    }
+-
+-    if (msg->type != SSH_FXP_INIT)
+-    {
+-        throw mp::SSHException(fmt::format(
+-            "[sftp] server init failed: 'FATAL: Packet read of type {} instead of SSH_FXP_INIT'",
+-            msg->type));
+-    }
+-
+-    // Optional: Log the SSH_FXP_INIT reception like libssh does with SSH_LOG but with mp::log
+-
+-    if (MP_LIBSSH.sftp_reply_version(msg) != SSH_OK)
++    // sftp_server_init() is deprecated in libssh 0.12, but it is still exported
++    // and is the public entry point that replies to SSH_FXP_INIT.
++    if (MP_LIBSSH.sftp_server_init(sftp_server_session.get()) != SSH_OK)
+     {
+-        throw mp::SSHException(
+-            "[sftp] server init failed: 'FATAL: Failed to process the SSH_FXP_INIT message'");
++        throw mp::SSHException("[sftp] server init failed");
+     }
+ 
+     return sftp_server_session;
