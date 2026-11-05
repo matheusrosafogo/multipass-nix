@@ -72,6 +72,13 @@ flutter.buildFlutterApplication {
   postInstall = ''
     mv $out/bin/multipass_gui $out/bin/multipass.gui
 
+    # buildFlutterApplication installs every *.desktop file found in the
+    # bundle.  The autostart helper is not a regular application entry, so
+    # move it out of the application menu and install it as an autostart file.
+    rm -f $out/share/applications/multipass.gui.autostart.desktop
+    install -Dm444 assets/multipass.gui.autostart.desktop \
+      $out/etc/xdg/autostart/multipass.gui.desktop
+
     install -Dm444 assets/icon.png \
       $out/share/icons/hicolor/256x256/apps/multipass.gui.png
     install -Dm444 assets/multipass.gui.autostart.desktop \

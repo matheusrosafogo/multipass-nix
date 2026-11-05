@@ -64,6 +64,12 @@ stdenv.mkDerivation {
       --replace-fail "find_package(OpenSSL CONFIG REQUIRED)" "find_package(OpenSSL REQUIRED)" \
       --replace-fail "add_compile_options(-Werror -Wall -pedantic -fPIC)" "add_compile_options(-Werror -Wall -pedantic -fPIC -Wno-error)"
 
+    # NixOS does not ship the legacy ip_tables kernel modules.  If probing
+    # iptables-legacy fails, the upstream detection falls back to the legacy
+    # backend anyway; use nftables instead.
+    substituteInPlace src/platform/backends/qemu/linux/firewall_config.cpp \
+      --replace-fail "firewall_exec = iptables;" "firewall_exec = nftables;"
+
     # The Flutter GUI loads this small C++ helper through dart:ffi.  The normal
     # GUI CMake target is disabled here (the Dart bundle is built separately),
     # so build and install just the helper.
