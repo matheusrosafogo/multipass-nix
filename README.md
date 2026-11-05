@@ -24,7 +24,7 @@ Para usar como flake:
 
 ```nix
 {
-  inputs.multipass.url = "github:SEU_USUARIO/multipass-nix";
+  inputs.multipass.url = "github:matheusrosafogo/multipass-nix";
 
   outputs = { self, nixpkgs, multipass, ... }: {
     nixosConfigurations.minha-maquina = nixpkgs.lib.nixosSystem {
@@ -39,6 +39,79 @@ Para usar como flake:
   };
 }
 ```
+
+## Publicando no GitHub
+
+O repositório local já contém os commits. Crie o repositório no GitHub e
+envie:
+
+```console
+cd /home/matheus/multipass-nix
+git remote add origin git@github.com:matheusrosafogo/multipass-nix.git
+git push -u origin master
+```
+
+Se o SSH ainda não estiver configurado, use HTTPS com o `gh` autenticado:
+
+```console
+git -c credential.helper='!gh auth git-credential' \
+  push -u https://github.com/matheusrosafogo/multipass-nix.git master
+```
+
+## Instalando em outra máquina
+
+Em uma configuração NixOS baseada em flakes, adicione o input e o módulo:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    multipass.url = "github:matheusrosafogo/multipass-nix";
+  };
+
+  outputs = { self, nixpkgs, multipass, ... }: {
+    nixosConfigurations.minha-maquina = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        multipass.nixosModules.default
+        { services.multipass.enable = true; }
+      ];
+    };
+  };
+}
+```
+
+Depois:
+
+```console
+sudo nixos-rebuild switch --flake .#minha-maquina
+systemctl status multipass
+multipass version
+multipass list
+```
+
+Para testar o pacote sem ativar o serviço:
+
+```console
+nix build github:matheusrosafogo/multipass-nix#multipass
+```
+
+Se a outra máquina usa NixOS clássico (sem `flake.nix`), o mais limpo é
+converter a configuração para flakes. Alternativamente, use o flake como input
+impuro:
+
+```nix
+let
+  mp = builtins.getFlake "github:matheusrosafogo/multipass-nix";
+in
+{
+  imports = [ mp.nixosModules.default ];
+  services.multipass.package = mp.packages.${pkgs.stdenv.hostPlatform.system}.multipass;
+  services.multipass.enable = true;
+}
+```
+
+O flake está habilitado apenas para `x86_64-linux`.
 
 Ou diretamente com o módulo do nixpkgs (quando o pacote for enviado upstream):
 
